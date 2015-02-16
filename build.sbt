@@ -1,4 +1,4 @@
-name := "untitled3"
+name := "c2bf"
 
 version := "1.0"
 
