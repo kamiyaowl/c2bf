@@ -1,5 +1,5 @@
 
-package kamiya.parse
+package kamiya.parse.expr
 import scala.util.parsing.combinator.RegexParsers
 
 /**
