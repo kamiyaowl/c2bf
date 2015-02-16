@@ -33,7 +33,7 @@ case class BoolLiteral(b: Boolean) extends Literal
 case class StringLiteral(c:String) extends Literal
 case class Variable(name: String) extends Literal//TODO: literal -> keyword
 case class ArgsList(args:List[Expr]) extends Literal
-case class Func(a: Variable, args: ArgsList) extends Literal
+case class Func(a: String, args: ArgsList) extends Literal
 case class QueteExpr(exprs:List[Expr]) extends Literal
 
 
@@ -66,7 +66,7 @@ case class Div(a: Expr, b: Expr) extends BinaryOp(a, b)
 case class Rest(a: Expr, b: Expr) extends BinaryOp(a, b)
 
 class UnaryOp(a: Expr) extends Expr
-case class BitNot(a: Expr) extends UnaryOp(a)
+case class Not(a: Expr) extends UnaryOp(a)
 case class BitInv(a: Expr) extends UnaryOp(a)
 case class Increment(a: Expr) extends UnaryOp(a)
 case class Decrement(a: Expr) extends UnaryOp(a)
@@ -86,9 +86,9 @@ object ExprParser extends RegexParsers {
 
   def args = noEmptyArgs | emptyArgs
   def emptyArgs = "(" ~ ")" ^^ { case a ~ b => ArgsList(List.empty[Expr])}
-  def noEmptyArgs = (("(" ~> variable) ~ rep("," ~> variable)) <~ ")" ^^ { case head ~ tail => ArgsList(head :: tail) }
+  def noEmptyArgs = (("(" ~> statement) ~ rep("," ~> statement)) <~ ")" ^^ { case head ~ tail => ArgsList(head :: tail) }
 
-  def function : Parser[Literal] = variable ~ args ^^ { case name ~ argv => Func(name,argv) }
+  def function : Parser[Literal] = "[a-zA-Z0-9]+".r ~ args ^^ { case name ~ argv => Func(name,argv) }
   def literal : Parser[Literal] = numberLiteral | stringLiteral | function | booleanLiteral | variable
 
   def assignTerm : Parser[String] = "+=" | "-=" | "*=" | "/=" | "*=" | "/=" | "<<=" | ">>=" | "&=" | "|=" | "^=" | "="
@@ -100,6 +100,7 @@ object ExprParser extends RegexParsers {
   def singleTerm : Parser[String] = "!" | "~" | "++" | "--"
 
   //master
+  def apply(src:String) = parseAll(allStatements,src)
   def allStatements : Parser[List[Expr]] = rep(allStatement)//TODO: first comment (rep(comment) ^^ {r => NoOperation()}) |
   def allStatement : Parser[Expr] =
     (switchState | rangeRepeatState | varRepeatState  | repeatState | doWhileState | whileState | forState | ifState | varDefState | statement) <~ rep(";" | comment)
@@ -163,7 +164,7 @@ object ExprParser extends RegexParsers {
   def brackets : Parser[Expr] = ("(" ~> assign ) <~ ")"
   def assign : Parser[Expr] = bit ~ rep("=" ~ bit) ^^ {
     case n ~ body => (n /: body){ (s,x) => { x._1 match {
-      case "+=" => Assign(s,Add(s,x._2))
+      case "+=" => Assign(s,Add(s,x._2))//TODO: first matched '+'
       case "=" => Assign(s,x._2)
     }}}
   }
@@ -210,7 +211,7 @@ object ExprParser extends RegexParsers {
   }
   def unary = single | literal | brackets//brackets is recursive statement
   def single: Parser[Expr] = singleTerm ~ unary ^^ {
-    case ("!" ~ literal) => BitNot(literal)
+    case ("!" ~ literal) => Not(literal)
     case ("~" ~ literal) => BitInv(literal)
     case ("++" ~ literal) => Increment(literal)
     case ("--" ~ literal) => Decrement(literal)
