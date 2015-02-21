@@ -150,5 +150,19 @@ object Main {
         |}
         |print(x)
       """.stripMargin).get.convert)
+    println(ExprParser(
+      """
+        |if(true) {
+        |    if(true){
+        |        if(true) {
+        |            print("nested if")
+        |        } else {
+        |            print("nested else")
+        |        }
+        |    }
+        |} else {
+        |    print("root else")
+        |}
+      """.stripMargin).get.convert)
   }
 }

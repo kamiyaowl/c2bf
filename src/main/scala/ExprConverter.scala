@@ -38,17 +38,12 @@ object ExprConverter {
   case class BitAndOp() extends ILAsmOp
 
   abstract class ILAsmControl extends ILAsm
-  case class IfBegin() extends ILAsmControl
-  case class IfEnd() extends ILAsmControl
-  case class ElseIfBegin() extends ILAsmControl
-  case class ElseIfEnd() extends ILAsmControl
-  case class ElseBegin() extends ILAsmControl
-  case class ElseEnd() extends ILAsmControl
 
   case class Jump(label:String) extends ILAsmControl
-  case class Branch(label:String) extends ILAsmControl
+  case class Branch(label:String) extends ILAsmControl//TODO:Label同様に分類が必要？
 
   class EmbeddedTag(label:String) extends  ILAsmControl
+
   case class Label(label:String) extends EmbeddedTag(label)
 
   class LoopLabel(label:String) extends  EmbeddedTag(label)
@@ -59,7 +54,18 @@ object ExprConverter {
   case class SwitchEndLabel(label:String) extends  SwitchCaseLabel(label)
   case class CaseLabel(label:String) extends  SwitchCaseLabel(label)
 
-  
+  class IfLabel(label:String) extends  EmbeddedTag(label)
+  case class IfStateBegin(label:String) extends  IfLabel(label)
+  case class IfBegin(label:String) extends IfLabel(label)
+  case class IfEnd(label:String) extends IfLabel(label)
+  case class ElseIfBegin(label:String) extends IfLabel(label)
+  case class ElseIfEnd(label:String) extends IfLabel(label)
+  case class ElseBegin(label:String) extends IfLabel(label)
+  case class ElseEnd(label:String) extends IfLabel(label)
+  case class IfStateEnd(label:String) extends  IfLabel(label)
+
+  case class IfThroughFlag(label:String) extends IfLabel(label)//IfStateEndでリセット
+
   implicit class ExprsConvert(val self: List[Expr]) {
     def convert : List[ILAsm] = self flatMap(_.convert)
   }
@@ -111,12 +117,29 @@ object ExprConverter {
         val endTag = StaticTools.anonymousTag
         List(LoopBeginLabel(startTag)) ++ cmp.convert ++ List(NotOp(), Branch(endTag)) ++ exprs.convert ++ List(Jump(startTag), LoopEndLabel(endTag))
       }
-        //TODO:else ifも考慮したendTagジャンプ
-      case IfState(head,Nil,None) => ifElseOp(head)(IfBegin(),IfEnd())
-      case IfState(head,Nil,Some(el)) => ifElseOp(head)(IfBegin(),IfEnd()) ++ List(ElseBegin()) ++ el.convert ++ List(ElseEnd())
-      case IfState(head,els,None) => ifElseOp(head)(IfBegin(),IfEnd()) ++ els.flatMap(ifElseOp(_)(ElseIfBegin(),ElseIfEnd()))
-      case IfState(head,els,Some(el)) => ifElseOp(head)(IfBegin(),IfEnd()) ++ els.flatMap(ifElseOp(_)(ElseIfBegin(),ElseIfEnd())) ++ List(ElseBegin()) ++ el.convert ++ List(ElseEnd())
+      case IfState((cmp1,proc1),elses,els) => {
+        val iftag = StaticTools.anonymousTag
+        val ifbegin = StaticTools.anonymousTag
+        val ifEnd = StaticTools.anonymousTag
 
+        val ifasm = List(IfBegin(ifbegin)) ++ cmp1.convert ++ List(NotOp(), Branch(ifEnd)) ++ proc1.convert ++ List(IfThroughFlag(iftag),IfEnd(ifEnd))
+
+        val elseifasm = elses.flatMap{ case (cmp, proc) => {
+          val btag = StaticTools.anonymousTag
+          val etag = StaticTools.anonymousTag
+          List(ElseIfBegin(btag)) ++ cmp.convert ++ List(NotOp(), Branch(etag)) ++ proc.convert ++ List(IfThroughFlag(iftag),ElseIfEnd(etag))
+        }}
+
+        val elseasm = els match {
+          case Some(proc) => {
+            val btag = StaticTools.anonymousTag
+            val etag = StaticTools.anonymousTag
+            List(ElseBegin(btag)) ++ proc.convert ++ List(ElseEnd(etag))
+          }
+          case None => List.empty
+        }
+        List(IfStateBegin(iftag)) ++ ifasm ++ elseifasm ++ elseasm ++ List(IfStateEnd(iftag))
+      }
       case ConstNumber(x) => List(Load(x))
       case BoolLiteral(x) => List(Load[Boolean](x))
       case StringLiteral(x) => List(Load[String](x))
