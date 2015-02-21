@@ -8,72 +8,80 @@ import kamiya.util.ConsoleColor._
 
 object ExprConverter {
   abstract class ILAsm
-  abstract class Load[A](bin: A) extends ILAsm
+
+  abstract class ILAsmPopOp extends ILAsm
+  abstract class ILAsmUnaryPopOp extends ILAsmPopOp
+  abstract class ILAsmBinPopOp extends ILAsmPopOp
+
+  trait ILAsmPushOp extends ILAsm
+
+  abstract class ILAsmAnnotation extends ILAsm
+
+  abstract class Load[A](bin: A) extends ILAsmPushOp
+
   case class LoadNumber(bin:Int) extends  Load[Int](bin){
-    override def toString() = ("LoadNumber(" + bin.toString + ")").blue
+    override def toString() = ("LoadNumber(" + bin.toString + ")").green
   }
   case class LoadBoolean(bin:Boolean) extends  Load[Boolean](bin){
-    override def toString() = ("LoadBoolean(" + bin.toString + ")").blue
+    override def toString() = ("LoadBoolean(" + bin.toString + ")").green
   }
   case class LoadString(bin:String) extends  Load[String](bin) {
-    override def toString() = ("LoadString(" + bin.toString + ")").blue
+    override def toString() = ("LoadString(" + bin.toString + ")").green
   }
 
 
-  case class LoadLocal(id: String,typeName:Option[String] = None) extends ILAsm {
+  case class LoadLocal(id: String,typeName:Option[String] = None) extends ILAsmPushOp {
     override def toString() = ("LoadLocal[" + typeName.toString + "](" + id + ")").cyan
   }
-  case class StoreLocal(id: String,typeName:Option[String] = None) extends ILAsm{
+  case class StoreLocal(id: String,typeName:Option[String] = None) extends ILAsmPushOp {
     override def toString() = ("StoreLocal[" + typeName.toString + "](" + id + ")").cyan
   }
 
-  case class LoadLocalArray(id: String,typeName:Option[String] = None) extends ILAsm{
+  case class LoadLocalArray(id: String,typeName:Option[String] = None) extends ILAsmUnaryPopOp with ILAsmPushOp {
     override def toString() = ("LoadLocalArray[" + typeName.toString + "](" + id + ")").magenta
   }
-  case class StoreLocalArray(id: String,typeName:Option[String] = None) extends ILAsm{
+  case class StoreLocalArray(id: String,typeName:Option[String] = None) extends ILAsmBinPopOp {
     override def toString() = ("StoreLocalArray[" + typeName.toString + "](" + id + ")").magenta
   }
 
-  case class Call(id: String,typeName:Option[String] = None) extends ILAsm{
-    override def toString() = ("Call[" + typeName.toString + "](" + id + ")").red
+  case class Call(id: String,typeName:Option[String] = None) extends ILAsmPopOp with ILAsmPushOp {
+    override def toString() = ("Call[" + typeName.toString + "](" + id + ")").yellow
   }
 
-  abstract class ILAsmAnnotation extends ILAsm
   case class StackPushAnnotation(n:Int) extends ILAsmAnnotation {
-    override def toString() = ("@StackPush(" + n.toString + ")").green
+    override def toString() = ("@StackPush(" + n.toString + ")").yellow
   }
   case class BadOperateAnnotation(expr:Expr) extends ILAsmAnnotation {
-    override def toString() = ("@BadOperate(" + expr.toString + ")").red
+    override def toString() = ("@BadOperate(" + expr.toString + ")").black.yellow_
   }
 
-  abstract class ILAsmOp extends ILAsm
-  case class AddOp() extends ILAsmOp
-  case class SubOp() extends ILAsmOp
-  case class MulOp() extends ILAsmOp
-  case class DivOp() extends ILAsmOp
-  case class RestOp() extends ILAsmOp
-  case class InvOp() extends ILAsmOp
-  case class NotOp() extends ILAsmOp
+  case class AddOp() extends ILAsmBinPopOp with ILAsmPushOp
+  case class SubOp() extends ILAsmBinPopOp with ILAsmPushOp
+  case class MulOp() extends ILAsmBinPopOp with ILAsmPushOp
+  case class DivOp() extends ILAsmBinPopOp with ILAsmPushOp
+  case class RestOp() extends ILAsmBinPopOp with ILAsmPushOp
+  case class InvOp() extends ILAsmBinPopOp with ILAsmPushOp
+  case class NotOp() extends ILAsmBinPopOp with ILAsmPushOp
 
-  case class LessOp() extends ILAsmOp
-  case class AndLessOp() extends ILAsmOp
-  case class NotEqualOp() extends ILAsmOp
-  case class EqualOp() extends ILAsmOp
-  case class AndOverOp() extends ILAsmOp
-  case class OverOp() extends ILAsmOp
-  case class LogicOrOp() extends ILAsmOp
-  case class LogicAndOp() extends ILAsmOp
+  case class LessOp() extends ILAsmBinPopOp with ILAsmPushOp
+  case class AndLessOp() extends ILAsmBinPopOp with ILAsmPushOp
+  case class NotEqualOp() extends ILAsmBinPopOp with ILAsmPushOp
+  case class EqualOp() extends ILAsmBinPopOp with ILAsmPushOp
+  case class AndOverOp() extends ILAsmBinPopOp with ILAsmPushOp
+  case class OverOp() extends ILAsmBinPopOp with ILAsmPushOp
+  case class LogicOrOp() extends ILAsmBinPopOp with ILAsmPushOp
+  case class LogicAndOp() extends ILAsmBinPopOp with ILAsmPushOp
 
-  case class BitRightShiftOp() extends ILAsmOp
-  case class BitLeftShiftOp() extends ILAsmOp
-  case class BitXorOp() extends ILAsmOp
-  case class BitOrOp() extends ILAsmOp
-  case class BitAndOp() extends ILAsmOp
+  case class BitRightShiftOp() extends ILAsmBinPopOp with ILAsmPushOp
+  case class BitLeftShiftOp() extends ILAsmBinPopOp with ILAsmPushOp
+  case class BitXorOp() extends ILAsmBinPopOp with ILAsmPushOp
+  case class BitOrOp() extends ILAsmBinPopOp with ILAsmPushOp
+  case class BitAndOp() extends ILAsmBinPopOp with ILAsmPushOp
 
   abstract class ILAsmControl extends ILAsm
 
   case class Jump(label:String) extends ILAsmControl
-  case class Branch(label:String) extends ILAsmControl//TODO:Label同様に分類が必要？
+  case class Branch(label:String) extends ILAsmBinPopOp//TODO:Label同様に分類が必要？
 
   class EmbeddedTag(label:String) extends  ILAsmControl
 
@@ -99,6 +107,8 @@ object ExprConverter {
 
   case class IfThroughFlag(label:String) extends IfLabel(label)//IfStateEndでリセット
 
+
+
   implicit class ExprsConvert(val self: List[Expr]) {
     def convert(implicit cs:ConverterStatus) : List[ILAsm] = self flatMap(_.convert)
   }
@@ -110,7 +120,7 @@ object ExprConverter {
     def anonymousTag = "$Tag" + getCount
   }
   implicit class ExprConvert(val self: Expr) {
-    private def binOp(left:Expr,asm:ILAsmOp, right:Expr)(implicit cs:ConverterStatus) = left.convert ++ right.convert ++ List(asm)
+    private def binOp(left:Expr,asm:ILAsmBinPopOp, right:Expr)(implicit cs:ConverterStatus) = left.convert ++ right.convert ++ List(asm)
 
     def convert(implicit cs:ConverterStatus) : List[ILAsm] = self match {
 
