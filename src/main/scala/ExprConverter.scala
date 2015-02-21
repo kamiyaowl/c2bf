@@ -11,10 +11,10 @@ object ExprConverter {
   case class LoadBoolean(bin:Boolean) extends  Load[Boolean](bin)
   case class LoadString(bin:String) extends  Load[String](bin)
 
-  case class LoadLocal(id: String,typeName:String = "") extends ILAsm
-  case class StoreLocal(id: String,typeName:String = "") extends ILAsm
+  case class LoadLocal(id: String,typeName:Option[String] = None) extends ILAsm
+  case class StoreLocal(id: String,typeName:Option[String] = None) extends ILAsm
 
-  case class Call(id: String,var typeName:String = "") extends ILAsm
+  case class Call(id: String,typeName:Option[String] = None) extends ILAsm
 
   abstract class ILAsmAnnotation extends ILAsm
   case class VariableAnnotation(name:String,typeName:String, size:Int) extends ILAsmAnnotation
@@ -87,18 +87,19 @@ object ExprConverter {
 
     def convert(implicit cs:ConverterStatus) : List[ILAsm] = self match {
 
-      case DefinitionVariable(t,Variable(name), right) => right.convert ++ List(StoreLocal(name,t))
+      case DefinitionVariable(t,Variable(name), right) => right.convert ++ List(StoreLocal(name,Some(t)))
       case SwitchState(cmp,cases) =>{
         val anoVar = cs.anonymousVariable
         val endTag = cs.anonymousTag
 
-        val start = cmp.convert ++ List(StoreLocal(anoVar,"unknown"))
+        val start = cmp.convert ++ List(StoreLocal(anoVar,None))
         val casesAsm : List[(List[ILAsm],List[ILAsm])] = cases.filter{
           case CaseState(_,_) => true
           case _ => false
         }.map { case CaseState(l, exprs) => {
             val label = cs.anonymousTag
-            (List(LoadLocal(anoVar,"unknown")) ++ l.convert ++ List[ILAsm](EqualOp(), Branch(label)), List[ILAsm](CaseLabel(label)) ++ exprs.convert ++ List[ILAsm](Jump(endTag)))
+            ( List(LoadLocal(anoVar,None)) ++ l.convert ++ List[ILAsm](EqualOp(), Branch(label)),
+              List[ILAsm](CaseLabel(label)) ++ exprs.convert ++ List[ILAsm](Jump(endTag)))
           }
         }
         val defaultAsm : List[ILAsm] = cases.find{
@@ -148,8 +149,8 @@ object ExprConverter {
       case BoolLiteral(x) => List(LoadBoolean(x))
       case StringLiteral(x) => List(LoadString(x))
 
-      case Decrement(Variable(x)) => List(LoadLocal(x,"unknown"),LoadNumber(1),SubOp(),StoreLocal(x,"number"))
-      case Increment(Variable(x)) => List(LoadLocal(x,"unknown"),LoadNumber(1),AddOp(),StoreLocal(x,"number"))
+      case Decrement(Variable(x)) => List(LoadLocal(x,None),LoadNumber(1),SubOp(),StoreLocal(x,Some("Number")))
+      case Increment(Variable(x)) => List(LoadLocal(x,None),LoadNumber(1),AddOp(),StoreLocal(x,Some("Number")))
       case BitInv(x) => x.convert ++ List(InvOp())
       case Not(x) => x.convert ++ List(NotOp())
 
@@ -175,12 +176,12 @@ object ExprConverter {
       case BitOr(left,right) => binOp(left,BitOrOp(),right)
       case BitAnd(left,right) => binOp(left,BitAndOp(),right)
 
-      case Func(name,args) => args.convert ++ List(Call(name,"unknown"))
+      case Func(name,args) => args.convert ++ List(Call(name,None))
       case ExprList(args) => args.convert
 
-      case Assign(Variable(name),right) => right.convert ++ List(StoreLocal(name,"unknown"))
+      case Assign(Variable(name),right) => right.convert ++ List(StoreLocal(name,None))
 
-      case Variable(name) => List(LoadLocal(name,"unknown"))//TODO:Def? Read?
+      case Variable(name) => List(LoadLocal(name,None))
     }
   }
 
