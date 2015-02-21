@@ -32,8 +32,8 @@ case class ConstNumber[+A](num: A) extends Literal
 case class BoolLiteral(b: Boolean) extends Literal
 case class StringLiteral(c:String) extends Literal
 case class Variable(name: String) extends Literal//TODO: literal -> keyword
-case class ArgsList(args:List[Expr]) extends Literal
-case class Func(a: String, args: ArgsList) extends Literal
+case class ExprList(args:List[Expr]) extends Literal
+case class Func(a: String, args: ExprList) extends Literal
 case class QueteExpr(exprs:List[Expr]) extends Literal
 
 
@@ -65,6 +65,8 @@ case class Mul(a: Expr, b: Expr) extends BinaryOp(a, b)
 case class Div(a: Expr, b: Expr) extends BinaryOp(a, b)
 case class Rest(a: Expr, b: Expr) extends BinaryOp(a, b)
 
+case class Indexer(a:Expr, b:Expr) extends  BinaryOp(a,b)
+
 class UnaryOp(a: Expr) extends Expr
 case class Not(a: Expr) extends UnaryOp(a)
 case class BitInv(a: Expr) extends UnaryOp(a)
@@ -81,15 +83,16 @@ object ExprParser extends RegexParsers {
 
   def booleanLiteral = ("[Tt]rue".r | "[Ff]alse".r) ^^ { r => BoolLiteral(r.toBoolean) }
   def stringLiteral = ("\"" ~> "(\\.|[^\"])*".r) <~ "\"" ^^ { r => StringLiteral(r) }
+  def arrayLiteral = ("{" ~> repsep(statement,",")) <~ "}" ^^{ r => ExprList(r) }
   def quoteExprLiteral = ("<[" ~> allStatements) <~ "]>" ^^ { r => QueteExpr(r) }
   def variable = "[a-zA-Z0-9]+".r ^^ { r => Variable(r)}
 
   def args = noEmptyArgs | emptyArgs
-  def emptyArgs = "(" ~ ")" ^^ { case a ~ b => ArgsList(List.empty[Expr])}
-  def noEmptyArgs = (("(" ~> statement) ~ rep("," ~> statement)) <~ ")" ^^ { case head ~ tail => ArgsList(head :: tail) }
+  def emptyArgs = "(" ~ ")" ^^ { case a ~ b => ExprList(List.empty[Expr])}
+  def noEmptyArgs = (("(" ~> statement) ~ rep("," ~> statement)) <~ ")" ^^ { case head ~ tail => ExprList(head :: tail) }
 
   def function : Parser[Literal] = "[a-zA-Z0-9]+".r ~ args ^^ { case name ~ argv => Func(name,argv) }
-  def literal : Parser[Literal] = numberLiteral | stringLiteral | function | booleanLiteral | variable
+  def literal : Parser[Literal] = numberLiteral | stringLiteral | function | booleanLiteral | variable | arrayLiteral
 
   def assignTerm : Parser[String] = "+=" | "-=" | "*=" | "/=" | "*=" | "/=" | "<<=" | ">>=" | "&=" | "|=" | "^=" | "="
   def bitTerm : Parser[String] = "<<" | ">>" | "&" | "|" | "^"
@@ -209,7 +212,15 @@ object ExprParser extends RegexParsers {
       case "%" => Rest(s,x._2)
     }}}
   }
-  def unary = single | literal | brackets//brackets is recursive statement
+
+  def unary = indexer | single | literal | brackets//brackets is recursive statement
+  def indexer : Parser[Expr] = (literal <~ "[") ~ statement.?  <~ "]" ^^ {
+      case a~Some(b) => Indexer(a,b)
+      case a~_ => a match {
+        case Variable(a) => Variable(a + "[]")//typename of array
+        case _ => throw new IllegalArgumentException
+      }
+    }
   def single: Parser[Expr] = singleTerm ~ unary ^^ {
     case ("!" ~ literal) => Not(literal)
     case ("~" ~ literal) => BitInv(literal)
