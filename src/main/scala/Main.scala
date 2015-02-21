@@ -18,7 +18,7 @@ object Main {
       println(asm)
       val bfasm = asm.toBf
       bfasm.foreach(println)
-      val bfcode = bfasm.mkCode
+      val bfcode = bfasm.mkDbgCode("i")
       println(bfcode.magenta)
 
       val bp = new BrainfuckDebugger
@@ -27,7 +27,19 @@ object Main {
       println()
     }
 
-    bftest("print('@')")
-    bftest("print(\"Hello\")")
+    //bftest("print('@')")
+    //bftest("print(\"Hello\")")
+    //bftest("print('1' + 5 - 1)")
+    bftest("print(11 * 11)")
+    /*
+    bftest(
+      """
+        |if(true) {
+        |    print("True")
+        |} else {
+        |    print("False")
+        |}
+      """.stripMargin)
+      */
   }
 }

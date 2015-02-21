@@ -33,7 +33,7 @@ class BrainfuckDebugger extends BrainfuckProcessor {
   override def memUpdate(f:Char => Char) ={ val r = super.memUpdate(f) ; debugPrint("after memUpdate")  ; r }
   override def ptUpdate(f:Int => Int) ={ val r = super.ptUpdate(f) ;  debugPrint("after ptUpdate"); r }
 
-  def memView(implicit around:Int = 10, message:String = "debug memView") : Unit = {
+  def memView(implicit around:Int = 10, message:String = "debug memView", isStop:Boolean = true) : Unit = {
     def b = if(this.pt - around >= 0) this.pt - around else 0
     def e = if(this.pt + around <= this.memMax) this.pt + around else this.memMax
 
@@ -46,12 +46,17 @@ class BrainfuckDebugger extends BrainfuckProcessor {
     println("_______" * this.pt + "^")
     this.buf.slice(b,e).map( _ +  ",").foreach(print)
     println
-
-    //optional tools
-    readLine match {
-      case "run" => { skipCount = 0 ; debugEnable = false }
-      case "skip" => { skipCount = readLine.toInt ; debugEnable = false }
-      case _ => Unit
+    if(isStop) {
+      //optional tools
+      readLine match {
+        case "run" => {
+          skipCount = 0; debugEnable = false
+        }
+        case "skip" => {
+          skipCount = readLine.toInt; debugEnable = false
+        }
+        case _ => Unit
+      }
     }
   }
   def memStrView(implicit around:Int = 10, message:String = "debug memStrView") : Unit = {
@@ -100,7 +105,7 @@ case class StepRun() extends BrainfuckDebugToken {
   override def debug(bd: BrainfuckDebugger) : Unit = bd.stepRun
 }
 case class MemView() extends BrainfuckDebugToken {
-  override def debug(bd: BrainfuckDebugger) : Unit = bd.memView
+  override def debug(bd: BrainfuckDebugger) : Unit = bd.memView(isStop = false)
 }
 case class MemStrView() extends BrainfuckDebugToken {
   override def debug(bd: BrainfuckDebugger) : Unit = bd.memStrView
