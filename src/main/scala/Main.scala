@@ -168,12 +168,12 @@ object Main {
     println(ExprParser(
       """
         |x[5] = 100
-      """.stripMargin))
+      """.stripMargin).get.convert)
     println(ExprParser(
       """
         |int x[10] = {1,2,3,4,5,6,7,8,9,10}
         |x[5] = 100
-      """.stripMargin))
+      """.stripMargin).get.convert)
     println(ExprParser(
       """
         |int x[10] = {1,
@@ -187,16 +187,17 @@ object Main {
         | bar
         |}
         |x[5] = 100
-      """.stripMargin))
+      """.stripMargin).get.convert)
     println(ExprParser(
       """
         |int x[1] = {}
-      """.stripMargin))
+      """.stripMargin).get.convert)
+    //NOT SUPPORT
     println(ExprParser(
       """
         |int x[] = {{1},{2,3},{{4,5},{6}}}
-      """.stripMargin))
-    println(ExprParser("int x = 5"))
+      """.stripMargin).get.convert)
+
     println(ExprParser("int x = 5").get.convert)
 
   }

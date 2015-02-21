@@ -3,21 +3,48 @@
  */
 package kamiya.parse.expr
 
-object ExprConverter {
+import kamiya.util.ConsoleColor
+import kamiya.util.ConsoleColor._
 
+object ExprConverter {
   abstract class ILAsm
   abstract class Load[A](bin: A) extends ILAsm
-  case class LoadNumber(bin:Int) extends  Load[Int](bin)
-  case class LoadBoolean(bin:Boolean) extends  Load[Boolean](bin)
-  case class LoadString(bin:String) extends  Load[String](bin)
+  case class LoadNumber(bin:Int) extends  Load[Int](bin){
+    override def toString() = ("LoadNumber(" + bin.toString + ")").blue
+  }
+  case class LoadBoolean(bin:Boolean) extends  Load[Boolean](bin){
+    override def toString() = ("LoadBoolean(" + bin.toString + ")").blue
+  }
+  case class LoadString(bin:String) extends  Load[String](bin) {
+    override def toString() = ("LoadString(" + bin.toString + ")").blue
+  }
 
-  case class LoadLocal(id: String,typeName:Option[String] = None) extends ILAsm
-  case class StoreLocal(id: String,typeName:Option[String] = None) extends ILAsm
 
-  case class Call(id: String,typeName:Option[String] = None) extends ILAsm
+  case class LoadLocal(id: String,typeName:Option[String] = None) extends ILAsm {
+    override def toString() = ("LoadLocal[" + typeName.toString + "](" + id + ")").cyan
+  }
+  case class StoreLocal(id: String,typeName:Option[String] = None) extends ILAsm{
+    override def toString() = ("StoreLocal[" + typeName.toString + "](" + id + ")").cyan
+  }
+
+  case class LoadLocalArray(id: String,typeName:Option[String] = None) extends ILAsm{
+    override def toString() = ("LoadLocalArray[" + typeName.toString + "](" + id + ")").magenta
+  }
+  case class StoreLocalArray(id: String,typeName:Option[String] = None) extends ILAsm{
+    override def toString() = ("StoreLocalArray[" + typeName.toString + "](" + id + ")").magenta
+  }
+
+  case class Call(id: String,typeName:Option[String] = None) extends ILAsm{
+    override def toString() = ("Call[" + typeName.toString + "](" + id + ")").red
+  }
 
   abstract class ILAsmAnnotation extends ILAsm
-  case class VariableAnnotation(name:String,typeName:String, size:Int) extends ILAsmAnnotation
+  case class StackPushAnnotation(n:Int) extends ILAsmAnnotation {
+    override def toString() = ("@StackPush(" + n.toString + ")").green
+  }
+  case class BadOperateAnnotation(expr:Expr) extends ILAsmAnnotation {
+    override def toString() = ("@BadOperate(" + expr.toString + ")").red
+  }
 
   abstract class ILAsmOp extends ILAsm
   case class AddOp() extends ILAsmOp
@@ -79,8 +106,8 @@ object ExprConverter {
   class ConverterStatus {
     private var counter = 0
     def getCount : Int = { counter += 1; counter }
-    def anonymousVariable = "___Anonymous_Variable_" + getCount + "___"
-    def anonymousTag = "___Anonymous_Tag_" + getCount + "___"
+    def anonymousVariable = "$Value" + getCount
+    def anonymousTag = "$Tag" + getCount
   }
   implicit class ExprConvert(val self: Expr) {
     private def binOp(left:Expr,asm:ILAsmOp, right:Expr)(implicit cs:ConverterStatus) = left.convert ++ right.convert ++ List(asm)
@@ -88,6 +115,13 @@ object ExprConverter {
     def convert(implicit cs:ConverterStatus) : List[ILAsm] = self match {
 
       case DefinitionVariable(t,Variable(name), right) => right.convert ++ List(StoreLocal(name,Some(t)))
+      case DefinitionArray(t,Variable(name), ExprList(values),size) => {
+        val arrSize = if(size.isEmpty) values.size else size.get
+        val rightasm = values take(arrSize) flatMap(_.convert)
+        val storeasm = (0 to (arrSize - 1)).reverse.flatMap{ n => List(LoadNumber(n),LoadLocalArray(name,Some(t))) }
+        rightasm ++ storeasm
+      }
+
       case SwitchState(cmp,cases) =>{
         val anoVar = cs.anonymousVariable
         val endTag = cs.anonymousTag
@@ -177,11 +211,12 @@ object ExprConverter {
       case BitAnd(left,right) => binOp(left,BitAndOp(),right)
 
       case Func(name,args) => args.convert ++ List(Call(name,None))
-      case ExprList(args) => args.convert
+      case ExprList(args) => args.convert ++ List(StackPushAnnotation(args.size))
 
       case Assign(Variable(name),right) => right.convert ++ List(StoreLocal(name,None))
-
+      case Assign(Indexer(Variable(name),indexExpr),right) => right.convert ++ indexExpr.convert ++ List(StoreLocalArray(name,None))
       case Variable(name) => List(LoadLocal(name,None))
+      case _ => List(BadOperateAnnotation(self))
     }
   }
 
