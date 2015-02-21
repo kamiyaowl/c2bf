@@ -128,8 +128,8 @@ object ExprConverter {
       case DefinitionArray(t,Variable(name), ExprList(values),size) => {
         val arrSize = if(size.isEmpty) values.size else size.get
         val rightasm = values take(arrSize) flatMap(_.convert)
-        val storeasm = (0 to (arrSize - 1)).reverse.flatMap{ n => List(LoadNumber(n),LoadLocalArray(name,Some(t))) }
-        rightasm ++ storeasm
+        val storeasm = (0 to (values.size - 1)).reverse.flatMap{ n => List(LoadNumber(n),LoadLocalArray(name,Some(t))) }
+        rightasm ++ List(StackPushAnnotation(values.size)) ++ storeasm
       }
 
       case SwitchState(cmp,cases) =>{
@@ -225,7 +225,9 @@ object ExprConverter {
 
       case Assign(Variable(name),right) => right.convert ++ List(StoreLocal(name,None))
       case Assign(Indexer(Variable(name),indexExpr),right) => right.convert ++ indexExpr.convert ++ List(StoreLocalArray(name,None))
+      //Store => Assign( Variable|Indexer, ___)
       case Variable(name) => List(LoadLocal(name,None))
+      case Indexer(Variable(arr),index) => index.convert ++ List(LoadLocalArray(arr,None))
       case _ => List(BadOperateAnnotation(self))
     }
   }

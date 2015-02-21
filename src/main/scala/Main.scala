@@ -199,6 +199,23 @@ object Main {
       """.stripMargin).get.convert)
 
     println(ExprParser("int x = 5").get.convert)
-
+    println(ExprParser(
+      """
+        |int n = 100
+        |int arr[100] = {0,0}
+        |for(int i = 2 ; i < n ; ++i) {
+        |    arr[i] = 1
+        |}
+        |for(int i = 2 ; i < n ; ++i) {
+        |    for(int j = i + i ; arr[i] == 1 && j < n; j = j + i) {
+        |      arr[j] = 0
+        |    }
+        |}
+        |for(int i = 2 ; i < n ; ++i){
+        |    if(arr[i] == 1) {
+        |        print(i)
+        |    }
+        |}
+      """.stripMargin).get.convert)
   }
 }
