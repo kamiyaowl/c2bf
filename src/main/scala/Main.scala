@@ -6,7 +6,7 @@ import kamiya.parse.brainfuck._
 import kamiya.parse.brainfuck.BrainfuckParser._
 
 object Main {
-  def main(args: Array[String]) = {
+  def main(args: Array[String]): Unit = {
     println(ExprParser(
       """
         |repeat(i ; 1 -> 30) {
@@ -137,5 +137,18 @@ object Main {
         |}
         |print(x)
       """.stripMargin).get.convert)
- }
+    println(ExprParser(
+      """
+        |int hoge = 100
+        |switch(hoge) {
+        |   case(10) {
+        |      x = "zero"
+        |   }
+        |   case (20) {
+        |       x = "two"
+        |   }
+        |}
+        |print(x)
+      """.stripMargin).get.convert)
+  }
 }

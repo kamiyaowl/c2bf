@@ -45,14 +45,21 @@ object ExprConverter {
   case class ElseBegin() extends ILAsmControl
   case class ElseEnd() extends ILAsmControl
 
-  case class WhileBegin(label:String) extends ILAsmControl
-  case class WhileBranch(label:String) extends ILAsmControl
-  case class WhileEnd(label:String) extends ILAsmControl
+  case class Jump(label:String) extends ILAsmControl
+  case class Branch(label:String) extends ILAsmControl
 
-  case class JmpOp(label:String) extends ILAsmControl
-  case class BranchOp(label:String) extends ILAsmControl
-  case class Label(label:String) extends ILAsmControl
+  class EmbeddedTag(label:String) extends  ILAsmControl
+  case class Label(label:String) extends EmbeddedTag(label)
 
+  class LoopLabel(label:String) extends  EmbeddedTag(label)
+  case class LoopBeginLabel(label:String) extends  LoopLabel(label)
+  case class LoopEndLabel(label:String) extends  LoopLabel(label)
+
+  class SwitchCaseLabel(label:String) extends EmbeddedTag(label)
+  case class SwitchEndLabel(label:String) extends  SwitchCaseLabel(label)
+  case class CaseLabel(label:String) extends  SwitchCaseLabel(label)
+
+  
   implicit class ExprsConvert(val self: List[Expr]) {
     def convert : List[ILAsm] = self flatMap(_.convert)
   }
@@ -71,7 +78,7 @@ object ExprConverter {
       case Definition(t,Variable(name), right) => right.convert ++ List(StoreLocal(name,t))
 
       //TODO: impl Repeat
-      //TODO: Remove StaticTools
+      //TODO: Remove StaticTools -> 引数に
       case SwitchState(cmp,cases) =>{
         val anoVar = StaticTools.anonymousVariable
         val endTag = StaticTools.anonymousTag
@@ -81,28 +88,28 @@ object ExprConverter {
           case CaseState(_,_) => true
           case _ => false
         }.map { case CaseState(l, exprs) => {
-          val label = StaticTools.anonymousTag
-          (List(LoadLocal(anoVar,"unknown")) ++ l.convert ++ List[ILAsm](BranchOp(label)), List[ILAsm](Label(label)) ++ exprs.convert ++ List[ILAsm](JmpOp(endTag)))
-        }
+            val label = StaticTools.anonymousTag
+            (List(LoadLocal(anoVar,"unknown")) ++ l.convert ++ List[ILAsm](EqualOp(), Branch(label)), List[ILAsm](CaseLabel(label)) ++ exprs.convert ++ List[ILAsm](Jump(endTag)))
+          }
         }
         val defaultAsm : List[ILAsm] = cases.find{
           case DefaultState(_) => true
           case _ => false
         } match {
-          case Some(DefaultState(expr)) => expr.convert ++ List(JmpOp(endTag))
-          case _ => List.empty[ILAsm]
+          case Some(DefaultState(expr)) => expr.convert ++ List(Jump(endTag))
+          case _ => List(Jump(endTag))
         }
-        start ++ casesAsm.flatMap(_._1) ++ defaultAsm ++ casesAsm.flatMap(_._2) ++ List[ILAsm](Label(endTag))
+        start ++ casesAsm.flatMap(_._1) ++ defaultAsm ++ casesAsm.flatMap(_._2) ++ List[ILAsm](SwitchEndLabel(endTag))
       }
       case ForState(gen,cmp,addr,exprs) => {
         val startTag = StaticTools.anonymousTag
         val endTag = StaticTools.anonymousTag
-        gen.convert ++ List(Label(startTag)) ++ cmp.convert ++ List(NotOp(), BranchOp(endTag)) ++ exprs.convert ++ addr.convert ++ List(JmpOp(startTag), Label(endTag))
+        gen.convert ++ List(LoopBeginLabel(startTag)) ++ cmp.convert ++ List(NotOp(), Branch(endTag)) ++ exprs.convert ++ addr.convert ++ List(Jump(startTag), LoopEndLabel(endTag))
       }
       case WhileState(cmp,exprs) => {
         val startTag = StaticTools.anonymousTag
         val endTag = StaticTools.anonymousTag
-        List(Label(startTag)) ++ cmp.convert ++ List(NotOp(), BranchOp(endTag)) ++ exprs.convert ++ List(JmpOp(startTag), Label(endTag))
+        List(LoopBeginLabel(startTag)) ++ cmp.convert ++ List(NotOp(), Branch(endTag)) ++ exprs.convert ++ List(Jump(startTag), LoopEndLabel(endTag))
       }
         //TODO:else ifも考慮したendTagジャンプ
       case IfState(head,Nil,None) => ifElseOp(head)(IfBegin(),IfEnd())
