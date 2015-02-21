@@ -25,7 +25,8 @@ case class DoWhileState(cmp:Expr, exprs:List[Expr]) extends Statement
 
 case class ForState(gen:List[Expr], cmp:Expr, adder:List[Expr],exprs:List[Expr]) extends Statement
 case class IfState(ifstate:(Expr,List[Expr]), elseiflist:List[(Expr,List[Expr])], elsestate:Option[List[Expr]]) extends Expr
-case class Definition(typename:String, variable:Variable, statement:Expr) extends Statement
+case class DefinitionVariable(typename:String, variable:Variable, statement:Expr) extends Statement
+case class DefinitionArray(typename:String, variable:Variable, statement:Expr, size:Option[Int] = None) extends Statement
 
 class Literal extends Expr
 case class ConstNumber[+A](num: A) extends Literal
@@ -106,7 +107,7 @@ object ExprParser extends RegexParsers {
   def apply(src:String) = parseAll(allStatements,src)
   def allStatements : Parser[List[Expr]] = rep(allStatement)//TODO: first comment (rep(comment) ^^ {r => NoOperation()}) |
   def allStatement : Parser[Expr] =
-    (switchState | rangeRepeatState | varRepeatState  | repeatState | doWhileState | whileState | forState | ifState | varDefState | statement) <~ rep(";" | comment)
+    (switchState | rangeRepeatState | varRepeatState  | repeatState | doWhileState | whileState | forState | ifState | arrDefState | varDefState | statement) <~ rep(";" | comment)
   def comment : Parser[String]= ("//" ~> ".*".r) | (("/*" ~> "^((?!\\*/).)*".r) <~ "*/")
   ////////////////////////////////////////////////////////////////////////////////////
   // extend statements
@@ -152,8 +153,12 @@ object ExprParser extends RegexParsers {
   ////////////////////////////////////////////////////////////////////////////////////
   // base statements
 
-  def varDefState : Parser[Expr] = (("[a-zA-Z0-9\\[\\]]+".r ~ variable) <~ "=") ~ statement ^^ {
-    case t ~ v ~ s => Definition(t,v,s)
+  def varDefState : Parser[DefinitionVariable] = (("[a-zA-Z0-9\\[\\]]+".r ~ (variable)) <~ "=") ~ statement ^^ {
+    case t ~ v ~ s => DefinitionVariable(t,v,s)
+  }
+  def arrDefState : Parser[DefinitionArray] = (("[a-zA-Z0-9\\[\\]]+".r ~ (indexer)) <~ "=") ~ statement ^^ {
+    case t ~ (v:Variable) ~ s => DefinitionArray(t,v,s,None)
+    case t ~ Indexer(v:Variable,ConstNumber(i:Int)) ~ s => DefinitionArray(t,v,s,Some(i))
   }
   def statement : Parser[Expr] = assignBlockFunc | assignFunc | brackets | assign
 
@@ -217,7 +222,7 @@ object ExprParser extends RegexParsers {
   def indexer : Parser[Expr] = (literal <~ "[") ~ statement.?  <~ "]" ^^ {
       case a~Some(b) => Indexer(a,b)
       case a~_ => a match {
-        case Variable(a) => Variable(a + "[]")//typename of array
+        case Variable(a) => Variable(a)// + "[]")//typename of array
         case _ => throw new IllegalArgumentException
       }
     }

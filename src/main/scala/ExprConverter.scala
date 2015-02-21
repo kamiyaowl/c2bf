@@ -6,12 +6,18 @@ package kamiya.parse.expr
 object ExprConverter {
 
   abstract class ILAsm
-  case class Load[A](num: A) extends ILAsm
-  case class Store[A](num: A) extends ILAsm
-  case class LoadLocal(id: String,var typeName:String = "") extends ILAsm
-  case class StoreLocal(id: String,var typeName:String = "") extends ILAsm
+  abstract class Load[A](bin: A) extends ILAsm
+  case class LoadNumber(bin:Int) extends  Load[Int](bin)
+  case class LoadBoolean(bin:Boolean) extends  Load[Boolean](bin)
+  case class LoadString(bin:String) extends  Load[String](bin)
+
+  case class LoadLocal(id: String,typeName:String = "") extends ILAsm
+  case class StoreLocal(id: String,typeName:String = "") extends ILAsm
 
   case class Call(id: String,var typeName:String = "") extends ILAsm
+
+  abstract class ILAsmAnnotation extends ILAsm
+  case class VariableAnnotation(name:String,typeName:String, size:Int) extends ILAsmAnnotation
 
   abstract class ILAsmOp extends ILAsm
   case class AddOp() extends ILAsmOp
@@ -69,12 +75,6 @@ object ExprConverter {
   implicit class ExprsConvert(val self: List[Expr]) {
     def convert(implicit cs:ConverterStatus) : List[ILAsm] = self flatMap(_.convert)
   }
-  object StaticTools {
-    private var counter = 0
-    def getCount : Int = { counter += 1; counter }
-    def anonymousVariable = "___Anonymous_Variable_" + getCount + "___"
-    def anonymousTag = "___Anonymous_Tag_" + getCount + "___"
-  }
   //副作用のあるゴミ
   class ConverterStatus {
     private var counter = 0
@@ -86,9 +86,8 @@ object ExprConverter {
     private def binOp(left:Expr,asm:ILAsmOp, right:Expr)(implicit cs:ConverterStatus) = left.convert ++ right.convert ++ List(asm)
 
     def convert(implicit cs:ConverterStatus) : List[ILAsm] = self match {
-      case Definition(t,Variable(name), right) => right.convert ++ List(StoreLocal(name,t))
 
-      //TODO: impl Repeat
+      case DefinitionVariable(t,Variable(name), right) => right.convert ++ List(StoreLocal(name,t))
       case SwitchState(cmp,cases) =>{
         val anoVar = cs.anonymousVariable
         val endTag = cs.anonymousTag
@@ -144,12 +143,13 @@ object ExprConverter {
         }
         List(IfStateBegin(iftag)) ++ ifasm ++ elseifasm ++ elseasm ++ List(IfStateEnd(iftag))
       }
-      case ConstNumber(x) => List(Load(x))
-      case BoolLiteral(x) => List(Load[Boolean](x))
-      case StringLiteral(x) => List(Load[String](x))
+      case ConstNumber(x:Int) => List(LoadNumber(x))
+      case ConstNumber(x:Char) => List(LoadNumber(x))
+      case BoolLiteral(x) => List(LoadBoolean(x))
+      case StringLiteral(x) => List(LoadString(x))
 
-      case Decrement(Variable(x)) => List(LoadLocal(x,"unknown"),Load(1),SubOp(),StoreLocal(x,"number"))
-      case Increment(Variable(x)) => List(LoadLocal(x,"unknown"),Load(1),AddOp(),StoreLocal(x,"number"))
+      case Decrement(Variable(x)) => List(LoadLocal(x,"unknown"),LoadNumber(1),SubOp(),StoreLocal(x,"number"))
+      case Increment(Variable(x)) => List(LoadLocal(x,"unknown"),LoadNumber(1),AddOp(),StoreLocal(x,"number"))
       case BitInv(x) => x.convert ++ List(InvOp())
       case Not(x) => x.convert ++ List(NotOp())
 
@@ -177,7 +177,9 @@ object ExprConverter {
 
       case Func(name,args) => args.convert ++ List(Call(name,"unknown"))
       case ExprList(args) => args.convert
+
       case Assign(Variable(name),right) => right.convert ++ List(StoreLocal(name,"unknown"))
+
       case Variable(name) => List(LoadLocal(name,"unknown"))//TODO:Def? Read?
     }
   }

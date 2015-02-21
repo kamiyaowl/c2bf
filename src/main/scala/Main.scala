@@ -196,5 +196,8 @@ object Main {
       """
         |int x[] = {{1},{2,3},{{4,5},{6}}}
       """.stripMargin))
+    println(ExprParser("int x = 5"))
+    println(ExprParser("int x = 5").get.convert)
+
   }
 }
