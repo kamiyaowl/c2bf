@@ -26,6 +26,7 @@ object Main {
     val bp = new BrainfuckDebugger
     //BrainfuckParser(hello).get.run(bp)
 
+    implicit val cs = new ConverterStatus
     println(ExprParser("true").get.convert)
     println(ExprParser("100").get.convert)
     println(ExprParser("0xfe").get.convert)

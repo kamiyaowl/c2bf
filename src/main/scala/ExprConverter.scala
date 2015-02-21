@@ -67,7 +67,7 @@ object ExprConverter {
   case class IfThroughFlag(label:String) extends IfLabel(label)//IfStateEndでリセット
 
   implicit class ExprsConvert(val self: List[Expr]) {
-    def convert : List[ILAsm] = self flatMap(_.convert)
+    def convert(implicit cs:ConverterStatus) : List[ILAsm] = self flatMap(_.convert)
   }
   object StaticTools {
     private var counter = 0
@@ -75,26 +75,30 @@ object ExprConverter {
     def anonymousVariable = "___Anonymous_Variable_" + getCount + "___"
     def anonymousTag = "___Anonymous_Tag_" + getCount + "___"
   }
+  //副作用のあるゴミ
+  class ConverterStatus {
+    private var counter = 0
+    def getCount : Int = { counter += 1; counter }
+    def anonymousVariable = "___Anonymous_Variable_" + getCount + "___"
+    def anonymousTag = "___Anonymous_Tag_" + getCount + "___"
+  }
   implicit class ExprConvert(val self: Expr) {
-    private def binOp(left:Expr,asm:ILAsmOp, right:Expr) = left.convert ++ right.convert ++ List(asm)
-    private def ifElseOp(expr:(Expr,List[Expr]))(b:ILAsmControl, e:ILAsmControl) =
-      expr._1.convert ++ List(b) ++ expr._2.convert ++ List(e)
+    private def binOp(left:Expr,asm:ILAsmOp, right:Expr)(implicit cs:ConverterStatus) = left.convert ++ right.convert ++ List(asm)
 
-    def convert : List[ILAsm] = self match {
+    def convert(implicit cs:ConverterStatus) : List[ILAsm] = self match {
       case Definition(t,Variable(name), right) => right.convert ++ List(StoreLocal(name,t))
 
       //TODO: impl Repeat
-      //TODO: Remove StaticTools -> 引数に
       case SwitchState(cmp,cases) =>{
-        val anoVar = StaticTools.anonymousVariable
-        val endTag = StaticTools.anonymousTag
+        val anoVar = cs.anonymousVariable
+        val endTag = cs.anonymousTag
 
         val start = cmp.convert ++ List(StoreLocal(anoVar,"unknown"))
         val casesAsm : List[(List[ILAsm],List[ILAsm])] = cases.filter{
           case CaseState(_,_) => true
           case _ => false
         }.map { case CaseState(l, exprs) => {
-            val label = StaticTools.anonymousTag
+            val label = cs.anonymousTag
             (List(LoadLocal(anoVar,"unknown")) ++ l.convert ++ List[ILAsm](EqualOp(), Branch(label)), List[ILAsm](CaseLabel(label)) ++ exprs.convert ++ List[ILAsm](Jump(endTag)))
           }
         }
@@ -108,32 +112,32 @@ object ExprConverter {
         start ++ casesAsm.flatMap(_._1) ++ defaultAsm ++ casesAsm.flatMap(_._2) ++ List[ILAsm](SwitchEndLabel(endTag))
       }
       case ForState(gen,cmp,addr,exprs) => {
-        val startTag = StaticTools.anonymousTag
-        val endTag = StaticTools.anonymousTag
+        val startTag = cs.anonymousTag
+        val endTag = cs.anonymousTag
         gen.convert ++ List(LoopBeginLabel(startTag)) ++ cmp.convert ++ List(NotOp(), Branch(endTag)) ++ exprs.convert ++ addr.convert ++ List(Jump(startTag), LoopEndLabel(endTag))
       }
       case WhileState(cmp,exprs) => {
-        val startTag = StaticTools.anonymousTag
-        val endTag = StaticTools.anonymousTag
+        val startTag = cs.anonymousTag
+        val endTag = cs.anonymousTag
         List(LoopBeginLabel(startTag)) ++ cmp.convert ++ List(NotOp(), Branch(endTag)) ++ exprs.convert ++ List(Jump(startTag), LoopEndLabel(endTag))
       }
       case IfState((cmp1,proc1),elses,els) => {
-        val iftag = StaticTools.anonymousTag
-        val ifbegin = StaticTools.anonymousTag
-        val ifEnd = StaticTools.anonymousTag
+        val iftag = cs.anonymousTag
+        val ifbegin = cs.anonymousTag
+        val ifEnd = cs.anonymousTag
 
         val ifasm = List(IfBegin(ifbegin)) ++ cmp1.convert ++ List(NotOp(), Branch(ifEnd)) ++ proc1.convert ++ List(IfThroughFlag(iftag),IfEnd(ifEnd))
 
         val elseifasm = elses.flatMap{ case (cmp, proc) => {
-          val btag = StaticTools.anonymousTag
-          val etag = StaticTools.anonymousTag
+          val btag = cs.anonymousTag
+          val etag = cs.anonymousTag
           List(ElseIfBegin(btag)) ++ cmp.convert ++ List(NotOp(), Branch(etag)) ++ proc.convert ++ List(IfThroughFlag(iftag),ElseIfEnd(etag))
         }}
 
         val elseasm = els match {
           case Some(proc) => {
-            val btag = StaticTools.anonymousTag
-            val etag = StaticTools.anonymousTag
+            val btag = cs.anonymousTag
+            val etag = cs.anonymousTag
             List(ElseBegin(btag)) ++ proc.convert ++ List(ElseEnd(etag))
           }
           case None => List.empty
