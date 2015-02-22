@@ -30,7 +30,7 @@ object Main {
     }
 
     //bftest("print('@')")
-    bftest("print(\"Hello World\")")
+    //bftest("print(\"Hello World\")")
     //bftest("print('1' + 5 - 1)")
     //bftest("print(1 + 2 * 3 + 4 + 5 * 6 + 7 + 8 + 9 * 10)")
     /*
@@ -42,10 +42,11 @@ object Main {
 */
     bftest(
       """
-        |int a = 1
-        |int b = 3
-        |string hoge = "Hello!"
-        |print(a + b + 'a')
+        |int hoge = "ABC"
+        |print(hoge)
+        |hoge = {'D','E','F'}
+        |print(hoge)
+        |hoge = "Hello"
         |print(hoge)
       """.stripMargin)
     /*

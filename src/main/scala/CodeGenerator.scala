@@ -52,7 +52,26 @@ object CodeGenerator {
     val code = (0 until size).map{i => cpy.code}.foldLeft("")(_ + _)
     Generate(code,size,Some(TypeInfo(size)))
   }
+  def storeLocal(current:Int,target:Int) : Generate = (target - current) match {
+    case 0 => ???
+    //.....current......target
+    case x if x > 0 => ???
+    //..target......current...
+    case x if x < 0 => {
+      val diff = -x
 
+      Generate(
+            "<" +
+            rep("<",diff - 1) + reset + rep(">",diff - 1) +
+            "[-" + rep("<",diff - 1) + "+" + rep(">",diff - 1) + "]"
+        ,-1,Some(TypeInfo(1)))
+    }
+  }
+  def storeLocals(current:Int,target:Int,size:Int) : Generate = {
+    val sto = storeLocal(current,target + size - 1).code
+    val code = (0 until size).map{i => sto}.foldLeft("")(_ + _)
+    Generate(code,-size,Some(TypeInfo(size)))
+  }
   def ifStateBegin(tag: String) = Generate("+>",1, Some(TypeInfo(1,Some(s"IfStateFlag$tag"))))
   def print(gens:List[Generate]) = gens.lastOption match {
     case Some(Generate(_,_, Some(TypeInfo(size,_)))) =>
@@ -99,7 +118,15 @@ object CodeGenerator {
       }
       case LoadNumber(x) :: tail => toBf(tail)(generates :+ loadNumber(x),typer)
       case LoadString(str) :: tail => toBf(tail)(generates :+ loadString(str),typer)
-      case StoreLocal(name,t) :: tail => toBf(tail)
+      case StoreLocal(name,t) :: tail => t match {
+          //Definition(...StoreLocal())
+        case Some(_) => toBf(tail)
+          //Assign Store
+        case None => typer.get(name) match {
+          case None => ???
+          case Some(lt) => toBf(tail)(generates :+ storeLocals(generates.map(_.movePtr).sum,lt.pt,lt.size),typer)
+        }
+      }
       case LoadLocal(name,t)::tail => typer.get(name) match {
         case Some(lt) => toBf(tail)(generates :+ loadLocals(generates.map(_.movePtr).sum,lt.pt,lt.size),typer)
         case None => ???
