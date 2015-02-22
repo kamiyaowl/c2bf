@@ -33,13 +33,15 @@ object ExprConverter {
   case class LoadLocal(id: String,typeName:Option[String] = None) extends ILAsmPushOp {
     override def toString() = ("LoadLocal[" + typeName.toString + "](" + id + ")").cyan
   }
-  case class StoreLocal(id: String,typeName:Option[String] = None) extends ILAsmPushOp {
-    override def toString() = ("StoreLocal[" + typeName.toString + "](" + id + ")").cyan
+  //defTypeは定義時のみ付加する
+  case class StoreLocal(id: String,defType:Option[String] = None) extends ILAsmPushOp {
+    override def toString() = ("StoreLocal[" + defType.toString + "](" + id + ")").cyan
   }
 
-  case class LoadLocalArray(id: String,typeName:Option[String] = None) extends ILAsmUnaryPopOp with ILAsmPushOp {
-    override def toString() = ("LoadLocalArray[" + typeName.toString + "](" + id + ")").magenta
+  case class LoadLocalArray(id: String,defType:Option[String] = None) extends ILAsmUnaryPopOp with ILAsmPushOp {
+    override def toString() = ("LoadLocalArray[" + defType.toString + "](" + id + ")").magenta
   }
+  //defTypeは定義時のみ付加する
   case class StoreLocalArray(id: String,typeName:Option[String] = None) extends ILAsmBinPopOp {
     override def toString() = ("StoreLocalArray[" + typeName.toString + "](" + id + ")").magenta
   }
@@ -51,8 +53,14 @@ object ExprConverter {
   case class StackPushAnnotation(n:Int) extends ILAsmAnnotation {
     override def toString() = ("@StackPush(" + n.toString + ")").yellow
   }
+  case class SizeAnnotation(n:Int) extends ILAsmAnnotation {
+    override def toString() = ("@Size(" + n.toString + ")").yellow
+  }
   case class BadOperateAnnotation(expr:Expr) extends ILAsmAnnotation {
     override def toString() = ("@BadOperate(" + expr.toString + ")").black.yellow_
+  }
+  case class DefinitionAnnotation(name:String,asms:List[ILAsm]) extends ILAsmAnnotation {
+    override def toString() = "@Definition(".black.magenta_ + name + "," + asms.toString + ")".black.magenta_
   }
 
   case class AddOp() extends ILAsmBinPopOp with ILAsmPushOp
@@ -124,11 +132,11 @@ object ExprConverter {
 
     def convert(implicit cs:ConverterStatus) : List[ILAsm] = self match {
 
-      case DefinitionVariable(t,Variable(name), right) => right.convert ++ List(StoreLocal(name,Some(t)))
+      case DefinitionVariable(t,Variable(name), right) => List(DefinitionAnnotation(name, right.convert ++ List(StoreLocal(name,Some(t)))))//defType
       case DefinitionArray(t,Variable(name), ExprList(values),size) => {
         val arrSize = if(size.isEmpty) values.size else size.get
         val rightasm = values take(arrSize) flatMap(_.convert)
-        val storeasm = (0 to (values.size - 1)).reverse.flatMap{ n => List(LoadNumber(n),LoadLocalArray(name,Some(t))) }
+        val storeasm = (0 to (values.size - 1)).reverse.flatMap{ n => List(LoadNumber(n),LoadLocalArray(name,Some(t))) }//DefType
         rightasm ++ List(StackPushAnnotation(values.size)) ++ storeasm
       }
 
@@ -188,13 +196,13 @@ object ExprConverter {
         }
         List(IfStateBegin(iftag)) ++ ifasm ++ elseifasm ++ elseasm ++ List(IfStateEnd(iftag))
       }
-      case ConstNumber(x:Int) => List(LoadNumber(x))
-      case ConstNumber(x:Char) => List(LoadNumber(x))
-      case BoolLiteral(x) => List(LoadBoolean(x))
-      case StringLiteral(x) => List(LoadString(x))
+      case ConstNumber(x:Int) => List(LoadNumber(x), SizeAnnotation(1))
+      case ConstNumber(x:Char) => List(LoadNumber(x), SizeAnnotation(1))
+      case BoolLiteral(x) => List(LoadBoolean(x), SizeAnnotation(1))
+      case StringLiteral(x) => List(LoadString(x), SizeAnnotation(x.length))//string length info add!
 
-      case Decrement(Variable(x)) => List(LoadLocal(x,None),LoadNumber(1),SubOp(),StoreLocal(x,Some("Number")))
-      case Increment(Variable(x)) => List(LoadLocal(x,None),LoadNumber(1),AddOp(),StoreLocal(x,Some("Number")))
+      case Decrement(Variable(x)) => List(LoadLocal(x,None),LoadNumber(1),SubOp(),StoreLocal(x,None))//defTypeは定義時のみ付加する
+      case Increment(Variable(x)) => List(LoadLocal(x,None),LoadNumber(1),AddOp(),StoreLocal(x,None))
       case BitInv(x) => x.convert ++ List(InvOp())
       case Not(x) => x.convert ++ List(NotOp())
 

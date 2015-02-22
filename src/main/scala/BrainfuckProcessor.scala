@@ -33,17 +33,17 @@ class BrainfuckDebugger extends BrainfuckProcessor {
   override def memUpdate(f:Char => Char) ={ val r = super.memUpdate(f) ; debugPrint("after memUpdate")  ; r }
   override def ptUpdate(f:Int => Int) ={ val r = super.ptUpdate(f) ;  debugPrint("after ptUpdate"); r }
 
-  def memView(implicit around:Int = 10, message:String = "debug memView", isStop:Boolean = true) : Unit = {
+  def memView(implicit around:Int = 15, message:String = "debug memView", isStop:Boolean = true) : Unit = {
     def b = if(this.pt - around >= 0) this.pt - around else 0
     def e = if(this.pt + around <= this.memMax) this.pt + around else this.memMax
 
     println
-    println(s"### $message ###")
+    println(s"### $message ### pt = $pt")
     (b to (e - 1)).map("[" + _.toString.padTo(4,' ') + "]").foreach(print)
     println
     this.buf.slice(b,e).map(_.asInstanceOf[Int].toString.padTo(5,'_') + "|").foreach(print)
     println
-    println("_______" * this.pt + "^")
+    println("______" * this.pt + "^")
     this.buf.slice(b,e).map( _ +  ",").foreach(print)
     println
     if(isStop) {
