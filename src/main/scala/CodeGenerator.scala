@@ -18,7 +18,7 @@ object CodeGenerator {
     def repeat(t:String, n:Int) : String = t * n
 
     def loadNumber(x:Int) = Generate(reset + repeat("+",x) + ">",1,numberType)
-    def loadString(str:String) = Generate(str.flatMap{c => reset + repeat("+",c.asInstanceOf[Int]) + ">"}.mkString,str.length,Some(TypeInfo(str.length,Some("String"))))
+    def loadString(str:String) = Generate(str.flatMap{c => reset + repeat("+",c.asInstanceOf[Int]) + ">\n"}.mkString,str.length,Some(TypeInfo(str.length,Some("String"))))
 
     def addNumber = Generate("<[<+>-]",-1,numberType)
     def subNumber = Generate("<[<->-]",-1,numberType)
@@ -29,7 +29,8 @@ object CodeGenerator {
           |>[<+<<+>>>-]<
           |[>+<-]
         |<]
-        |>>[-]<<""".stripMargin,-1,numberType)
+        |>>[-]<<
+        |""".stripMargin,-1,numberType)
 
     def ifStateBegin(tag:String) = Generate("+>",1,Some(TypeInfo(1,Some(s"IfStateFlag$tag"))))
 
@@ -51,27 +52,17 @@ object CodeGenerator {
     def toBf :  List[Generate] = ILAsmAssembler.toBf(self)(List.empty)
   }
   object ILAsmAssembler {
-    def toBf(asm:ILAsm)(implicit generates:List[Generate]) : Option[Generate] = asm match {
-      case StackPushAnnotation(_) => None
-      case LoadNumber(x) => Some(loadNumber(x))
-      case LoadString(str) => Some(loadString(str))
-
-      case AddOp() => Some(addNumber)
-      case SubOp() => Some(subNumber)
-      case MulOp() => Some(mulNumber)
-        //Div
-
-      //TODO:if with takewhile
-      case Call(name,typeName) => Some(callStdFunc(name))
-    }
     @tailrec
     def toBf(asm:List[ILAsm])(implicit generates:List[Generate]) : List[Generate] = asm match {
       case Nil => generates
-      case head::tail => {
-        val ngen = toBf(head)(generates)
-        val gen = if(ngen.isEmpty) generates else generates ++ List(ngen.get)
-        toBf(tail)(gen)
-      }
+      case StackPushAnnotation(_)::tail => toBf(tail)(generates)
+      case LoadNumber(x)::tail => toBf(tail)(generates :+ loadNumber(x))
+      case LoadString(str)::tail => toBf(tail)(generates :+ loadString(str))
+
+      case AddOp()::tail => toBf(tail)(generates :+ addNumber)
+      case SubOp()::tail => toBf(tail)(generates :+ subNumber)
+      case MulOp()::tail => toBf(tail)(generates :+ mulNumber)
+      case Call(name,typeName)::tail => toBf(tail)(generates :+ callStdFunc(name))
     }
   }
 }

@@ -10,6 +10,7 @@ object Main {
   def main(args: Array[String]): Unit = {
 
     def bftest(code:String) = {
+      println(code)
       val ast = ExprParser(code)
       println(ast)
       implicit val cs = new ConverterStatus
@@ -18,7 +19,7 @@ object Main {
       println(asm)
       val bfasm = asm.toBf
       bfasm.foreach(println)
-      val bfcode = bfasm.mkDbgCode("i")
+      val bfcode = bfasm.mkDbgCode("")
       println(bfcode.magenta)
 
       val bp = new BrainfuckDebugger
@@ -28,9 +29,9 @@ object Main {
     }
 
     //bftest("print('@')")
-    //bftest("print(\"Hello\")")
+    bftest("print(\"Hello World\")")
     //bftest("print('1' + 5 - 1)")
-    bftest("print(11 * 11)")
+    //bftest("print(1 + 2 * 3 + 4 + 5 * 6 + 7 + 8 + 9 * 10)")
     /*
     bftest(
       """
